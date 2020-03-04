@@ -1,12 +1,12 @@
 # MoodleAutomaticFileRetriever
 Console Course downloader for the Inholland Moodle  Environment 
 
-#Build
+# Build
 Either download the jar (includes dependencies)
 
 Or you build it with maven on the console
 
-> Mvn clean compile install 
+> mvn clean compile install package assembly:single
 
 
 --- more to be added ---
