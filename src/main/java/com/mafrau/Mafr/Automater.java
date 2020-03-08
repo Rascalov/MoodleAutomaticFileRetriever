@@ -194,11 +194,7 @@ public class Automater {
 				// We are either getting blocked, or something accidental is blocking access to the content
 				// refreshing the page does nothing, but restarting the client and relogging proved to work in all current cases
 				System.out.println("30 attempts made, refreshing...");
-				this.webClient.close();
-				this.webClient = new WebClient(BrowserVersion.FIREFOX_60);
-				webClient.getOptions().setJavaScriptEnabled(true); 
-				webClient.getCookieManager().setCookiesEnabled(true);
-				webClient.getOptions().setRedirectEnabled(true);
+				this.Reset();
 				System.out.println("Relogging...");
 				System.out.println(login(this.username, this.password) ? "Relogged": "failed to relog");
 				this.page = webClient.getPage(url);
@@ -215,7 +211,13 @@ public class Automater {
 		}
 		return contentSection;
 	}
-	
+	private void Reset(){
+		this.webClient.close();
+		this.webClient = new WebClient(BrowserVersion.FIREFOX_60);
+		webClient.getOptions().setJavaScriptEnabled(true);
+		webClient.getCookieManager().setCookiesEnabled(true);
+		webClient.getOptions().setRedirectEnabled(true);
+	}
 
 	
 	private void downloadFile(String downloadLink, String path) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
