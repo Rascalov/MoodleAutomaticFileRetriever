@@ -29,12 +29,14 @@ public class Automater {
 	private WebClient webClient;
 	private String moodleCourseUrl, downloadPath;
 	private HtmlPage page;
+	private MoodleDownloader downloader;
 	private String username, password; // Necessary later on, when the site attempts to block access, we hop to a new client and relog 
 	
 	public Automater(WebClient webClient, String moodleCourseUrl, String downloadPath) {
 		this.webClient = webClient;
 		this.moodleCourseUrl = moodleCourseUrl;
 		this.downloadPath = downloadPath;
+		this.downloader = new MoodleDownloader(webClient);
 	}
 	public boolean login(String username, String password) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		page = webClient.getPage(LOGIN_FORM_URL);
@@ -94,7 +96,7 @@ public class Automater {
 				if(!((DomElement)initLink.getParentNode()).getTagName().equals("h3")) {
 					System.out.println("Name: " + initLink.asText());
 					System.out.println("Resource Link: " + ((DomElement)initLink).getAttribute("href") );
-					downloadFile(((DomElement)initLink).getAttribute("href"), this.downloadPath + "/"+ courseSubject.get(0).name);
+					downloader.downloadFile(((DomElement)initLink).getAttribute("href"), this.downloadPath + "/"+ courseSubject.get(0).name);
 					System.out.println();
 				}
 			}
@@ -108,10 +110,10 @@ public class Automater {
 				content  = getContent(cleanurl + "#section-" + folder.sectionId);
 				downloadLinks = content.querySelectorAll("a");
 				for (var link : downloadLinks) {
-					if(!((DomElement)link.getParentNode()).getTagName().equals("h3")) {
+					if(!((DomElement)link.getParentNode()).getTagName().equals("h3")) { // check prevents headline link to be added
 						System.out.println("Name: " + link.asText());
 						System.out.println("Resource Link: " + ((DomElement)link).getAttribute("href") );
-						downloadFile(((DomElement)link).getAttribute("href"), this.downloadPath + "/"+ courseSubjectName + "/"+ folder.name);
+						downloader.downloadFile(((DomElement)link).getAttribute("href"), this.downloadPath + "/"+ courseSubjectName + "/"+ folder.name);
 						System.out.println();
 					}
 				}
@@ -120,6 +122,23 @@ public class Automater {
 		}
 		System.out.println("Finished Downloading");
 	}
+
+	private DomNodeList<DomNode> getMoodleMaterial(DomNode content){
+		// Goal is to get resource links per li of the ul
+		// TODO see if this is necessary
+
+		return null;
+	}
+	private ArrayList<MoodleFile> getCurrentFiles(File folder){
+		// goals is to return all files of the current path and it's following folders
+		for (File file : folder.listFiles()){
+			if(file.isDirectory()){
+
+			}
+		}
+		return null;
+	}
+
 	
 	private ArrayList<ArrayList<MoodleFolder>> determineMapStructure(DomNode menu) {
 		// Determine the map structure based on the given menu. We also are able to get the data-sections the menu has. 
@@ -190,22 +209,18 @@ public class Automater {
 			System.out.println("Failed to get content. Trying again.. attempt: " +  attempts); 
 			Thread.sleep(200);
 			attempts++;
-			if(attempts == 30) {
+			if(attempts == 25) {
 				// We are either getting blocked, or something accidental is blocking access to the content
 				// refreshing the page does nothing, but restarting the client and relogging proved to work in all current cases
-				System.out.println("30 attempts made, refreshing...");
+				System.out.println(attempts + " attempts made, refreshing...");
 				this.Reset();
 				System.out.println("Relogging...");
 				System.out.println(login(this.username, this.password) ? "Relogged": "failed to relog");
 				this.page = webClient.getPage(url);
-				System.out.println("-----Previous---Xml");
-				System.out.println(contentSection.asXml());
 				System.out.println("\n Getting new content...");
 				page = this.webClient.getPage(url);
-				Thread.sleep(5000);
+				Thread.sleep(2000);
 				contentSection = page.querySelector("ul#mt-sectioncontainer");
-				System.out.println("-----Current---Xml");
-				System.out.println(contentSection.asXml());
 				attempts = 1;
 			}
 		}
@@ -218,130 +233,8 @@ public class Automater {
 		webClient.getCookieManager().setCookiesEnabled(true);
 		webClient.getOptions().setRedirectEnabled(true);
 	}
-
-	
-	private void downloadFile(String downloadLink, String path) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		// Idea here is to determine the type of file you handle, 
-		System.out.println("Handling: " + downloadLink);
-		WebResponse response = null;
-		try {
-			response = this.webClient.getPage(downloadLink).getWebResponse();
-		} catch(Exception e) {
-			System.out.println("Link unrelated to Moodle");
-			return; // if a webresponse gets an exception, it is likely a page unrelated to moodle
-		}
-		
-		
-		if(response.getContentType().equals("text/html")) {
-			HtmlPage downloadPage = null;
-			// somtimes the Webclient complains, still not sure why
-			try {
-				downloadPage = this.webClient.getPage(downloadLink);
-			} catch (Exception e) {
-				System.out.println("Error parsing downloadlink.");
-				return;
-			}
-			
-			// we need to figure out what kind of page it is
-			// a big clue here is the body, the id of the body gives away what kind of files it shows
-			switch (((DomElement)downloadPage.querySelector("body")).getAttribute("id")) {
-			case "page-mod-resource-view":
-				// there are two possible files that have this body id: pdf preview, and redirect download, so check for both
-				if (downloadPage.querySelector("iframe#resourceobject") != null) {
-					downloadFromRedirect(downloadPage, path);
-				}
-				else if (downloadPage.querySelector("object#resourceobject") != null) {
-					downloadPdfPreview(downloadPage, path);
-				}
-				else {
-					// probably an old form of gettin the document
-					DomElement link = ((DomElement)downloadPage.querySelector("div[role=main]")).querySelector("a");
-					if(link != null) {
-						downloadFromWebResponse(webClient.getPage(link.getAttribute("href")).getWebResponse(), path);
-					}
-					else {
-						// but if not, i'd be confused
-						System.out.println("wtf");
-					}
-				}
-				break;			
-			case "page-mod-forum-view":
-				downloadTextFile(downloadPage, path);
-				break;
-			case "page-mod-page-view":
-				downloadTextFile(downloadPage, path);
-				break;
-			case "page-mod-folder-view":
-				downloadMapFolder(downloadPage, path);
-				break;
-			case "page-mod-assign-view":
-				
-				break;
-			case "page-mod-questionnaire-view":
-				
-				break;
-				
-			default:
-				// Could be a page unrelated to Moodle, but print it out anyway if available
-				System.out.println("Unknown file referal: " + ((DomElement)downloadPage.querySelector("body")).getAttribute("id"));
-				
-			}
-		}
-		else {
-			downloadFromWebResponse(response, path); // If its not a html page, it's a direct download where we can get the content from
-		}
-		
-	}
-	private void downloadFromWebResponse(WebResponse response, String path) throws IOException {
-		// this method takes the webresponse, gets the name and inputstream and write it to the path
-		String filename = response.getResponseHeaderValue("Content-Disposition");
-		filename = StringUtils.substringsBetween(filename, "\"", "\"")[0];
-		System.out.println("Downloading: " + filename);
-		try (InputStream in = response.getContentAsStream()) {
-            try (FileOutputStream out = new FileOutputStream(path + "/" + filename)) {
-                byte[] buffer = new byte[8 * 1024];
-                int bytesRead;
-                while ((bytesRead = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
-                }
-            }
-            System.out.println(filename + " succesfully downloaded.");
-        }
-	}
-	private void downloadPdfPreview(HtmlPage page, String path) throws IOException {
-		// When moodle gives a pdf preview page, it hides the source in a object tag, 
-		DomElement resource = (DomElement)page.querySelector("object#resourceobject");
-		downloadFromWebResponse(webClient.getPage(resource.getAttribute("data")).getWebResponse(), path);
-	}
-	
-	private void downloadTextFile(HtmlPage page, String path) throws IOException {
-		// needs to be better, naming and such
-		String pageContent = page.querySelector("div[role=main]").asText();
-		String title = page.querySelector("h2").asText();
-		title = removeIllegalCharsFromFileName(title);
-		//System.out.println(pageContent);
-		Files.write(Paths.get(path + "/" + title + ".txt"), pageContent.getBytes());
-		System.out.println("Downloaded TextFile as: " + title + ".txt");
-	}
-	private void downloadMapFolder(HtmlPage page, String path) throws IOException {
-		DomElement content = page.querySelector("section#region-main");
-		DomElement form = content.querySelector("form");
-		System.out.println(form.asXml());
-	    var element = (DomElement)form.querySelector("button");
-	    if(element == null) {
-	    	downloadTextFile(page, path);
-	    }
-	    else {		
-	    	downloadFromWebResponse(element.click().getWebResponse(), path);
-		}
-		
-	}
-	private void downloadFromRedirect(HtmlPage page, String path) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		String urlString = ((DomElement)page.querySelector("iframe#resourceobject")).getAttribute("src");
-		downloadFromWebResponse(this.webClient.getPage(urlString).getWebResponse(), path);
-	}
 	private String removeIllegalCharsFromFileName(String filename) {
 		return filename.replaceAll("[^a-zA-Z0-9\\.\\-]", "_");
 	}
-	
+
 }
