@@ -16,6 +16,7 @@ Recommended use is in a bash/shell script which you ran periodically
 
 >java -jar mafr1.5.jar -u MoodleCourseUrl -login username password -d D:\a\path\to\the\course\folder
 
+note: The MoodleCourse url needs to be clean with only its id ( e.g. https://moodle.inholland.nl/course/view.php?id=10558 )
 
 # Build
 Either download the jar (includes dependencies)
