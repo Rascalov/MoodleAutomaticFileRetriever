@@ -63,7 +63,9 @@ public class Automater {
 
 	public void downloadCourseItems() throws FailingHttpStatusCodeException, MalformedURLException, IOException, InterruptedException {
 
-		page = webClient.getPage(moodleCourseUrl);
+		String cleanurl = getCleanUrl();
+		System.out.println("Clean url fetched: " + cleanurl);
+		page = webClient.getPage(cleanurl);
 		String CourseName = page.querySelector("div.page-header-headings").asText();
 		CourseName = removeIllegalCharsFromFileName(CourseName);
 		this.downloadPath += "/" + CourseName; // Maybe move this to the constructor, or find a better way of doing this
@@ -73,11 +75,9 @@ public class Automater {
 		System.out.println("Getting Map structure...");
 		var structure = determineMapStructure(menu);
 		System.out.println("Map Structure determined. Fetching clean url...");
-		// now, foreach folder structure, we call
-		String cleanurl = getCleanUrl();
-		System.out.println("Clean url fetched: " + cleanurl);
 		File f;
 		ArrayList<MoodleFile> rawLinkList = new ArrayList<MoodleFile>();
+		// for each folder structure we call
 		System.out.println("Downloading Course Subjects...");
 		for(MoodleFolder folder : structure){
 			f = new File(folder.path);
@@ -85,8 +85,11 @@ public class Automater {
 			rawLinkList.addAll(getMoodleFilesByFolder(folder, cleanurl));
 		}
 
+		int counter = 1;
 		for (MoodleFile file : rawLinkList){
+			System.out.println("_______________________Potential File #" + counter + "_______________________" );
 			downloader.downloadFile(file.getDownloadLink(), file.getLocation().path, false);
+			counter++;
 		}
 		System.out.println("Finished Downloading");
 		webClient.close();
@@ -146,6 +149,11 @@ public class Automater {
 					}
 				}
 			}
+		}
+		for(MoodleFolder f : MoodleFolders){
+			System.out.println(f.name);
+			System.out.println(f.sectionId);
+			System.out.println(f.path);
 		}
 		return MoodleFolders;
 	}
@@ -237,8 +245,8 @@ public class Automater {
 		DomNodeList<DomNode> downloadLinks = content.querySelectorAll("a");
 		for (DomNode initLink : downloadLinks) {
 			if(!((DomElement)initLink.getParentNode()).getTagName().equals("h3")) {
-				System.out.println("Name: " + initLink.asText());
-				System.out.println("Resource Link: " + ((DomElement)initLink).getAttribute("href") );
+				//System.out.println("Name: " + initLink.asText());
+				//System.out.println("Resource Link: " + ((DomElement)initLink).getAttribute("href") );
 				MoodleFile moodleFile = new MoodleFile(((DomElement)initLink).getAttribute("href"), folder);
 				moodleFiles.add(moodleFile);
 			}

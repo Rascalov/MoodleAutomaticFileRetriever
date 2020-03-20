@@ -25,6 +25,8 @@ public class App
 		webClient.getCookieManager().setCookiesEnabled(true);
 		webClient.getOptions().setRedirectEnabled(true);
 
+
+
 		String url, path, username;
 		char[] passwordArray;
 
