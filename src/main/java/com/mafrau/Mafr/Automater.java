@@ -1,19 +1,12 @@
 package com.mafrau.Mafr;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.WebResponse;
 import com.gargoylesoftware.htmlunit.html.DomElement;
 import com.gargoylesoftware.htmlunit.html.DomNode;
 import com.gargoylesoftware.htmlunit.html.DomNodeList;
@@ -22,6 +15,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlEmailInput;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlPasswordInput;
+import org.apache.commons.lang3.StringUtils;
 
 public class Automater {
 	private final String LOGIN_FORM_URL = "https://moodle.inholland.nl/auth/saml2/login.php?wants&idp=75681424e34ca7710fa9a3bf0b398bd2&passive=off";
@@ -30,8 +24,8 @@ public class Automater {
 	private String moodleCourseUrl, downloadPath;
 	private HtmlPage page;
 	private MoodleDownloader downloader;
-	private String username, password; // Necessary later on, when the site attempts to block access, we hop to a new client and relog 
-	
+	private String username, password; // Necessary later on, when the site attempts to block access, we hop to a new client and relog
+
 	public Automater(WebClient webClient, String moodleCourseUrl, String downloadPath) {
 		this.webClient = webClient;
 		this.moodleCourseUrl = moodleCourseUrl;
@@ -40,34 +34,35 @@ public class Automater {
 	}
 	public boolean login(String username, String password) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		page = webClient.getPage(LOGIN_FORM_URL);
-		
+
 		HtmlForm form = page.getForms().get(0);
-        HtmlEmailInput uname =  form.getInputByName("UserName");
-        HtmlPasswordInput pass =  form.getInputByName("Password"); 
-        HtmlElement buttonElement = form.getElementsByTagName("span").get(1);
-        uname.setValueAttribute(username);
-        pass.setValueAttribute(password);    
-        page = buttonElement.click();
-        
-        // Surfspot attempts to redirect you to a page where robots can't click on to continue, I made a temp solution
-        // Clean solution will be made whenever I feel like figuring out all data the form sends and sending a replica request
-        DomElement BypassButton = page.createElement("button");
-        BypassButton.setAttribute("type", "submit");
-        HtmlForm formBypass = page.getForms().get(0);
-        formBypass.appendChild(BypassButton);
-        page = BypassButton.click();
-        
+		HtmlEmailInput uname =  form.getInputByName("UserName");
+		HtmlPasswordInput pass =  form.getInputByName("Password");
+		HtmlElement buttonElement = form.getElementsByTagName("span").get(1);
+		uname.setValueAttribute(username);
+		pass.setValueAttribute(password);
+		page = buttonElement.click();
+
+		// Surfspot attempts to redirect you to a page where robots can't click on to continue, I made a temp solution
+		// Clean solution will be made whenever I feel like figuring out all data the form sends and sending a replica request
+		DomElement BypassButton = page.createElement("button");
+		BypassButton.setAttribute("type", "submit");
+		HtmlForm formBypass = page.getForms().get(0);
+		formBypass.appendChild(BypassButton);
+		page = BypassButton.click();
+
 		// for the check you can simply use the current url of the client, if it is on moodle: true. else: false
 		if(page.getUrl().toString().equals(SUCCES_PAGE)) {
 			this.username = username;
 			this.password = password;
 			return true;
 		}
+		System.out.println(page.asXml());
 		return false;
 	}
-	
+
 	public void downloadCourseItems() throws FailingHttpStatusCodeException, MalformedURLException, IOException, InterruptedException {
-		
+
 		page = webClient.getPage(moodleCourseUrl);
 		String CourseName = page.querySelector("div.page-header-headings").asText();
 		CourseName = removeIllegalCharsFromFileName(CourseName);
@@ -76,82 +71,40 @@ public class Automater {
 		System.out.println("Created Directory for: " + this.downloadPath);
 		DomElement menu = page.querySelector("div.mt-sitemenus");
 		System.out.println("Getting Map structure...");
-		var structure = determineMapStructure(menu); 
-		System.out.println("Map Structure received. Fetching clean url...");
-		// now, foreach folder structure, we call 
+		var structure = determineMapStructure(menu);
+		System.out.println("Map Structure determined. Fetching clean url...");
+		// now, foreach folder structure, we call
 		String cleanurl = getCleanUrl();
 		System.out.println("Clean url fetched: " + cleanurl);
-		
+		File f;
+		ArrayList<MoodleFile> rawLinkList = new ArrayList<MoodleFile>();
 		System.out.println("Downloading Course Subjects...");
-		for (ArrayList<MoodleFolder> courseSubject : structure) {
-			System.out.println("------------------ Head folder------------------------");
-			String headFolder = this.downloadPath + "/" + courseSubject.get(0).name;
-			new File(headFolder).mkdir(); // Head Dir
-			System.out.println("Created: " + headFolder);
-			// the first folder is the Head dir, so he needs a seperate foreach and then be removed from courseSubject list
-			System.out.println("Getting content for: " + courseSubject.get(0).name);
-			DomNode content  = getContent(cleanurl + "#section-" + courseSubject.get(0).sectionId);
-			DomNodeList<DomNode> downloadLinks = content.querySelectorAll("a");
-			for (DomNode initLink : downloadLinks) {
-				if(!((DomElement)initLink.getParentNode()).getTagName().equals("h3")) {
-					System.out.println("Name: " + initLink.asText());
-					System.out.println("Resource Link: " + ((DomElement)initLink).getAttribute("href") );
-					downloader.downloadFile(((DomElement)initLink).getAttribute("href"), this.downloadPath + "/"+ courseSubject.get(0).name);
-					System.out.println();
-				}
-			}
-			// now remove the first folder from the list
-			String courseSubjectName = courseSubject.get(0).name;
-			courseSubject.remove(0);
-			System.out.println("------------------Sub Folder(s)------------------");
-			for (MoodleFolder folder : courseSubject) {
-				new File(this.downloadPath + "/" + courseSubjectName + "/" + folder.name).mkdir(); // Sub Dir
-				System.out.println("Folder " + folder.name + " has the following links:");
-				content  = getContent(cleanurl + "#section-" + folder.sectionId);
-				downloadLinks = content.querySelectorAll("a");
-				for (var link : downloadLinks) {
-					if(!((DomElement)link.getParentNode()).getTagName().equals("h3")) { // check prevents headline link to be added
-						System.out.println("Name: " + link.asText());
-						System.out.println("Resource Link: " + ((DomElement)link).getAttribute("href") );
-						downloader.downloadFile(((DomElement)link).getAttribute("href"), this.downloadPath + "/"+ courseSubjectName + "/"+ folder.name);
-						System.out.println();
-					}
-				}
-				System.out.println();
-			}
+		for(MoodleFolder folder : structure){
+			f = new File(folder.path);
+			f.mkdir();
+			rawLinkList.addAll(getMoodleFilesByFolder(folder, cleanurl));
+		}
+
+		for (MoodleFile file : rawLinkList){
+			downloader.downloadFile(file.getDownloadLink(), file.getLocation().path, false);
 		}
 		System.out.println("Finished Downloading");
+		webClient.close();
 	}
 
-	private DomNodeList<DomNode> getMoodleMaterial(DomNode content){
-		// Goal is to get resource links per li of the ul
-		// TODO see if this is necessary
-
-		return null;
-	}
-	private ArrayList<MoodleFile> getCurrentFiles(File folder){
-		// goals is to return all files of the current path and it's following folders
-		for (File file : folder.listFiles()){
-			if(file.isDirectory()){
-
-			}
-		}
-		return null;
-	}
-
-	
-	private ArrayList<ArrayList<MoodleFolder>> determineMapStructure(DomNode menu) {
-		// Determine the map structure based on the given menu. We also are able to get the data-sections the menu has. 
+	public ArrayList<MoodleFolder> determineMapStructure(DomNode menu) {
+		// Determine the map structure based on the given menu. We also are able to get the data-sections the menu has.
 		// The courses I collected did not go further than a 4 layer course system, maybe it is the limit
-		// TODO Rework the method of finding submenus, is is awful atm 
-	    var folderStructureArrayList = new ArrayList<ArrayList<MoodleFolder>>();
+		// TODO Rework the method of finding submenus, is is awful atm
+		ArrayList<MoodleFolder> MoodleFolders = new ArrayList<MoodleFolder>();
 		for (var element : menu.getChildren()) { // foreach Course Subject basically
-			ArrayList<MoodleFolder> courseSubject =  new ArrayList<MoodleFolder>();
 			String sectionID = ((DomElement)element.querySelector("a.mt-heading-btn")).getAttribute("data-section");
-			MoodleFolder headFolder = new MoodleFolder(element.asText(), Integer.parseInt(sectionID) );	
-			courseSubject.add(headFolder); // first object of the array is always the main folder
+			MoodleFolder headFolder = new MoodleFolder(element.asText(), Integer.parseInt(sectionID) );
+			headFolder.path = this.downloadPath + "/" + headFolder.name;
+			MoodleFolders.add(headFolder);
 			// need to check for sub menu and gather its folders
-		    DomNode subMenu = element.querySelector("div.list-group");
+			MoodleFolder folder;
+			DomNode subMenu = element.querySelector("div.list-group");
 			if(subMenu != null) {
 				for (DomNode node : subMenu.getChildNodes()) {
 					if(((DomElement)node).getTagName().equals("div")) {
@@ -160,35 +113,41 @@ public class Automater {
 							// and another foreach if it's submenu level 3.... There must be a better way to handle this
 							if(((DomElement)subNode).getTagName().equals("div")) {
 								for (DomNode subsubNode : subNode.getChildNodes()) {
-									
 									// it allows layer 4... Need a better method for this asap
- 									if(((DomElement)subsubNode).getTagName().equals("div")) {
+									if(((DomElement)subsubNode).getTagName().equals("div")) {
 										for (DomNode subsubsubNode : subsubNode.getChildNodes()) {
 											int dataSectionId = Integer.parseInt(((DomElement)subsubsubNode).getAttribute("data-section"));
-											courseSubject.add(new MoodleFolder(subsubsubNode.getTextContent(), dataSectionId));
+											folder = new MoodleFolder(subsubsubNode.getTextContent(), dataSectionId);
+											folder.path = headFolder.path + "/" + folder.name;
+											MoodleFolders.add(folder);
 										}
 									}
 									else {
 										int dataSectionId = Integer.parseInt(((DomElement)subsubNode).getAttribute("data-section"));
-										courseSubject.add(new MoodleFolder(subsubNode.getTextContent(), dataSectionId));
+										folder = new MoodleFolder(subsubNode.getTextContent(), dataSectionId);
+										folder.path = headFolder.path + "/" + folder.name;
+										MoodleFolders.add(folder);
 									}
 								}
 							}
 							else {
 								int dataSectionId = Integer.parseInt(((DomElement)subNode).getAttribute("data-section"));
-								courseSubject.add(new MoodleFolder(subNode.getTextContent(), dataSectionId));
+								folder = new MoodleFolder(subNode.getTextContent(), dataSectionId);
+								folder.path = headFolder.path + "/" + folder.name;
+								MoodleFolders.add(folder);
 							}
 						}
 					}
 					else {
 						int dataSectionId = Integer.parseInt(((DomElement)node).getAttribute("data-section"));
-						courseSubject.add(new MoodleFolder(node.getTextContent(), dataSectionId));
+						folder = new MoodleFolder(node.getTextContent(), dataSectionId);
+						folder.path = headFolder.path + "/" + folder.name;
+						MoodleFolders.add(folder);
 					}
 				}
 			}
-			folderStructureArrayList.add(courseSubject);
 		}
-		return folderStructureArrayList;
+		return MoodleFolders;
 	}
 	private String getCleanUrl() {
 		if(this.moodleCourseUrl.contains("&")) {
@@ -199,36 +158,32 @@ public class Automater {
 			return this.moodleCourseUrl;
 		}
 	}
-	private DomNode getContent(String url) throws InterruptedException, FailingHttpStatusCodeException, MalformedURLException, IOException {
+	private DomNode getContent(String hashJs) throws InterruptedException, FailingHttpStatusCodeException, MalformedURLException, IOException {
 		// This returns the current content displayed on the right side
-		this.page = this.webClient.getPage(url);
+		//this.page = this.webClient.getPage(url);
+		try {
+			page.executeJavaScript(hashJs);
+		}
+		catch (Exception e){
+			System.out.println("Javascript Tick error, trying workaround...");
+			// weird errors can occur, in which case we manually head to a page with the correct hash location
+			page = webClient.getPage((getCleanUrl() + "#" + StringUtils.substring(hashJs, '\'', '\'')));
+		}
 		DomNode contentSection = page.querySelector("ul#mt-sectioncontainer");
 		int attempts = 1;
 		while (contentSection.asText().equals("")) {
 			// it can take some time for content to be displayed, so wait untill it does
-			System.out.println("Failed to get content. Trying again.. attempt: " +  attempts); 
+			System.out.println("Failed to get content. Trying again.. attempt: " +  attempts);
 			Thread.sleep(200);
 			attempts++;
-			if(attempts == 25) {
-				// We are either getting blocked, or something accidental is blocking access to the content
-				// refreshing the page does nothing, but restarting the client and relogging proved to work in all current cases
-				System.out.println(attempts + " attempts made, refreshing...");
-				this.Reset();
-				System.out.println("Relogging...");
-				System.out.println(login(this.username, this.password) ? "Relogged": "failed to relog");
-				this.page = webClient.getPage(url);
-				System.out.println("\n Getting new content...");
-				page = this.webClient.getPage(url);
-				Thread.sleep(2000);
-				contentSection = page.querySelector("ul#mt-sectioncontainer");
-				attempts = 1;
-			}
 		}
+		System.out.println("Content Received!");
 		return contentSection;
 	}
 	private void Reset(){
+		// TODO Determine further use. As recent optimization has resulted in this method no longer being necessary
 		this.webClient.close();
-		this.webClient = new WebClient(BrowserVersion.FIREFOX_60);
+		this.webClient = new WebClient(BrowserVersion.BEST_SUPPORTED);
 		webClient.getOptions().setJavaScriptEnabled(true);
 		webClient.getCookieManager().setCookiesEnabled(true);
 		webClient.getOptions().setRedirectEnabled(true);
@@ -237,4 +192,57 @@ public class Automater {
 		return filename.replaceAll("[^a-zA-Z0-9\\.\\-]", "_");
 	}
 
+	public void updateFiles() throws IOException, InterruptedException {
+		// We download new/updated files as soon as they become available to the account you logged on to
+		// this can be called separately or after a mass download
+		// We gather two MoodleFile lists
+		// 1st list is a uncurated list, all <a> elements found
+		// 2nd list will be made by looping (maybe)
+
+		System.out.println("Updating the Course...");
+		page = webClient.getPage(moodleCourseUrl);
+		DomElement menu = page.querySelector("div.mt-sitemenus");
+		// We take the structure again
+		System.out.println("Getting Map structure");
+		var structure = determineMapStructure(menu);
+		System.out.println("Map Structure recieved");
+		String cleanurl = getCleanUrl();
+		System.out.println("Fetching files...");
+		ArrayList<MoodleFile> files = new ArrayList<MoodleFile>();
+		// Loop through the folders, take their path, if it doesn't exist, make it
+		for(MoodleFolder moodleFolder : structure){
+			System.out.println("Getting content for " + moodleFolder.name);
+			File folder = new File(moodleFolder.path);
+			if(!folder.exists()){
+				folder.mkdir();
+			}
+			files.addAll(getMoodleFilesByFolder(moodleFolder, cleanurl));
+		}
+		// now we have all potential moodlefiles
+		// Now we must sanitize/discover files (maps hide additional files)
+
+
+		// after we can loop over them, and decide whether we download them or not.
+
+		for(MoodleFile file : files){
+			// Determine whether it can and/or must be downloaded by setting the downloadFilemethod to updateMode
+			downloader.downloadFile(file.getDownloadLink(), file.getLocation().path, true);
+		}
+		webClient.close();
+	}
+	private ArrayList<MoodleFile> getMoodleFilesByFolder(MoodleFolder folder, String cleanCourseUrl) throws IOException, InterruptedException {
+		ArrayList<MoodleFile> moodleFiles = new ArrayList<MoodleFile>();
+		String js = "window.location.hash = 'section-" + folder.sectionId + "'";
+		DomNode content  = getContent(js);
+		DomNodeList<DomNode> downloadLinks = content.querySelectorAll("a");
+		for (DomNode initLink : downloadLinks) {
+			if(!((DomElement)initLink.getParentNode()).getTagName().equals("h3")) {
+				System.out.println("Name: " + initLink.asText());
+				System.out.println("Resource Link: " + ((DomElement)initLink).getAttribute("href") );
+				MoodleFile moodleFile = new MoodleFile(((DomElement)initLink).getAttribute("href"), folder);
+				moodleFiles.add(moodleFile);
+			}
+		}
+		return moodleFiles;
+	}
 }
