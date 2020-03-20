@@ -1,4 +1,5 @@
-# MoodleAutomaticFileRetriever
+![MafrLogo](https://i.imgur.com/j031Zng.png)
+
 Console Course downloader for the Inholland Moodle  Environment 
 
 # How to use the command line arguments
