@@ -73,8 +73,6 @@ public class App
 		Automater attempt = new Automater(webClient, url, path);
 		if(attempt.login(username, new String(passwordArray))) {
 			System.out.println("Logged in");
-			System.out.println(webClient.getCache().getSize());
-			System.out.println("Cookie storage: " + webClient.getCookieManager().getCookies().size());
 			if(cmd.hasOption("u")){
 				while(true){
 					attempt.updateFiles();

@@ -222,7 +222,9 @@ public class MoodleDownloader {
                 case "page-mod-assign-view":
                 case "page-mod-questionnaire-view":
                     break;
-
+                case "page-mod-book-view":
+                    downloadResponse = responseFrombookview(downloadPage);
+                    break;
                 default:
                     // Could be a page unrelated to Moodle, but print it out anyway if available
                     System.out.println("Unknown file referal: " + ((DomElement)downloadPage.querySelector("body")).getAttribute("id"));
@@ -327,6 +329,23 @@ public class MoodleDownloader {
         String urlString = ((DomElement)page.querySelector("iframe#resourceobject")).getAttribute("src");
         return this.webClient.getPage(urlString).getWebResponse();
         //downloadFromWebResponse(this.webClient.getPage(urlString).getWebResponse(), path);
+    }
+    private WebResponse responseFrombookview(HtmlPage page){
+        // current goal: get webresponse for video stored in book-view
+        // If there is anything else in view, we will have to test further to see if it needs to be handled like map folders
+        try {
+            DomElement section = (DomElement)page.querySelector("section#region-main");
+            DomElement video = (DomElement)section.querySelector("video");
+            DomElement source = (DomElement)video.querySelector("source");
+            return webClient.getPage(source.getAttribute("src")).getWebResponse();
+        }
+        catch (Exception e){
+            System.out.println("File in book-view is not a video, to fix this, report it to the the MAFR creators and provide a link to the course and the link to the resource");
+            e.printStackTrace();
+            return null;
+        }
+
+
     }
     private String removeIllegalCharsFromFileName(String filename) {
         return filename.replaceAll("[^a-zA-Z0-9\\.\\-]", "_");
