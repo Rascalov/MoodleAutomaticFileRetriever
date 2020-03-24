@@ -24,7 +24,6 @@ public class Automater {
 	private String moodleCourseUrl, downloadPath;
 	private HtmlPage page;
 	private MoodleDownloader downloader;
-	private String username, password; // Necessary later on, when the site attempts to block access, we hop to a new client and relog
 
 	public Automater(WebClient webClient, String moodleCourseUrl, String downloadPath) {
 		this.webClient = webClient;
@@ -53,8 +52,6 @@ public class Automater {
 
 		// for the check you can simply use the current url of the client, if it is on moodle: true. else: false
 		if(page.getUrl().toString().equals(SUCCES_PAGE)) {
-			this.username = username;
-			this.password = password;
 			return true;
 		}
 		System.out.println(page.asXml());
