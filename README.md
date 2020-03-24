@@ -30,7 +30,7 @@ Or you build it with maven on the console
 
 TODO:
 
-- **Better Link crawler, instead of only looking for links, look for videos, text etc. **
+- **Better Link crawler, instead of only looking for links, look for videos, text etc.**
 
 - **Graphical user interface version**
 
