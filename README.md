@@ -70,7 +70,7 @@ If there is text, it might be prudent to download it immediately, as it cannot b
 
 li tags have certain classes that define what their content consumes.
 
-Current tags and their definitions:
+Current found classes and their definitions:
 - **modtype_resource: holds one(?) link to a resource**
 - **modtype_label: holds text without resource links, though could include links. Usually used for Header Titles**
 - **modtype_book: Holds a video(?) in a seperate window**
