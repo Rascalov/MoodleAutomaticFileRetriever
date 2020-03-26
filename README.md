@@ -78,7 +78,8 @@ Current tags and their definitions:
 - **modtype_forum: Holds a forum which has multiple announcements from the course**
 - **modtype_assign: Holds an assignment field where users can drop assignments, probably never interesting** 
 - **modtype_page: Holds a text file, some have a Last-Modified in string format**  
-- **modtype_url: Holds url should be saved as a textfile**  
+- **modtype_url: Holds url should be saved as a textfile**   
+- **modtype_groupselect: Holds a list of group members, can be saved as textfile**   
 
 
 Every mod type can have text, no matter what they convey (save for modtype_label, that's its entire purpose)
