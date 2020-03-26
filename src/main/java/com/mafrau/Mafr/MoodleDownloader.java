@@ -149,11 +149,17 @@ public class MoodleDownloader {
         System.out.println("Handling: " + downloadLink);
         WebResponse response = null;
         WebResponse downloadResponse = null;
-        if(isMoodleLink(downloadLink)){
-            response = this.webClient.getPage(downloadLink).getWebResponse();
+        try {
+            if(isMoodleLink(downloadLink)){
+                response = this.webClient.getPage(downloadLink).getWebResponse();
+            }
+            else {
+                System.out.println("No moodle download link");
+                return;
+            }
         }
-        else {
-            System.out.println("No moodle download link");
+        catch (Exception e){
+            System.out.println("Error occurred while downloading");
             return;
         }
 
