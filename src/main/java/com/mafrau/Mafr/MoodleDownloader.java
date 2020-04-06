@@ -310,26 +310,25 @@ public class MoodleDownloader {
     }
     private ArrayList<WebResponse>  responseFromMapFolder(HtmlPage page, String path) throws IOException {
         // Meant to download Moodle map structures as zip or textfile depending on the content
+        ArrayList<WebResponse> responses = new ArrayList<WebResponse>();
         DomElement content = page.querySelector("section#region-main");
         DomElement form = content.querySelector("form");
         var element = (DomElement)form.querySelector("button");
         if(element == null) {
             downloadTextFile(page, path);
-            return null;
         }
         else {
-            ArrayList<WebResponse> responses = new ArrayList<WebResponse>();
             DomElement tree = page.querySelector("#folder_tree0");
             for(var link : tree.querySelectorAll("a")){
                 try{
                     responses.add(webClient.getPage(((DomElement)link).getAttribute("href")).getWebResponse());
                 }
                 catch (Exception e){
+                    System.out.println("Error extracting file from map folder");
                 }
             }
-            return  responses;
         }
-
+        return responses;
     }
     private WebResponse responseFromRedirect(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
         String urlString = ((DomElement)page.querySelector("iframe#resourceobject")).getAttribute("src");

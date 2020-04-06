@@ -16,6 +16,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlPasswordInput;
 import org.apache.commons.lang3.StringUtils;
+import org.w3c.dom.DOMException;
 
 public class Automater {
 	private final String LOGIN_FORM_URL = "https://moodle.inholland.nl/auth/saml2/login.php?wants&idp=75681424e34ca7710fa9a3bf0b398bd2&passive=off";
@@ -176,13 +177,28 @@ public class Automater {
 		}
 		DomNode contentSection = page.querySelector("ul#mt-sectioncontainer");
 		int attempts = 1;
-		while (contentSection.asText().equals("")) {
-			// it can take some time for content to be displayed, so wait untill it does
-			System.out.println("Failed to get content. Trying again.. attempt: " +  attempts);
-			Thread.sleep(200);
-			attempts++;
+		try{
+			while (contentSection.asText().equals("")) {
+				// it can take some time for content to be displayed, so wait untill it does
+				System.out.println("Failed to get content. Trying again.. attempt: " +  attempts);
+				Thread.sleep(200);
+				attempts++;
+				if(attempts == 101){
+					System.out.println("Attempt limit reached");
+					System.out.println("Restarting...");
+					page = webClient.getPage((getCleanUrl() + "#" + StringUtils.substring(hashJs, '\'', '\'')));
+					Thread.sleep(1000);
+					contentSection = page.querySelector("ul#mt-sectioncontainer");
+					attempts = 1;
+				}
+			}
+			System.out.println("Content Received!");
 		}
-		System.out.println("Content Received!");
+		catch (Exception e){
+			System.out.println("Content Corrupted, weird stuff...");
+			return contentSection;
+		}
+
 		return contentSection;
 	}
 	private void Reset(){
