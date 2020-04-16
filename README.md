@@ -3,7 +3,7 @@
 Console Course downloader for the Inholland Moodle  Environment 
 
 # How to use the command line arguments
-If you want to run Mafr regularly, you can just run it as
+If you want to run Mafr manually, you can just run it as
 ```
 java -jar mafr1.5.jar
 ```
