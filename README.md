@@ -1,3 +1,10 @@
+Deprecated console application! Visit the new and improved MAFR Client and MAFR Server repositories
+
+[MAFR CLIENT](https://github.com/Rascalov/MafrClientSide)
+
+[MAFR SERVER](https://github.com/Rascalov/MafrServerSide)
+
+
 ![MafrLogo](https://i.imgur.com/j031Zng.png)
 
 Console Course downloader for the Inholland Moodle  Environment 
